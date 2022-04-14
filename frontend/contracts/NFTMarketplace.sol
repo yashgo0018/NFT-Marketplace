@@ -2,7 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "hardhat/console.sol";
-import "@openzeppelin/contracts/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
@@ -83,7 +83,9 @@ contract NFTMarketplace {
             tokenId: tokenId,
             amount: amount,
             seller: msg.sender,
-            active: true
+            active: true,
+            buyer: address(0),
+            sold: false
         });
         emit SellNFT(
             newListingId,
@@ -99,10 +101,10 @@ contract NFTMarketplace {
         buy(listingId);
     }
 
-    function buy(uint256 listingId) public {
+    function buy(uint256 listingId) public payable {
         require(listingId != 0, "Listing not found");
-        IERC721 nftContract = IERC721(listing.contractAddress);
         Listing memory listing = listings[listingId];
+        IERC721 nftContract = IERC721(listing.contractAddress);
         require(
             listing.active &&
                 listing.seller == nftContract.ownerOf(listing.tokenId) &&
@@ -111,7 +113,7 @@ contract NFTMarketplace {
         );
         require(listing.seller != msg.sender, "You cannot buy your own token");
         require(listing.amount == msg.value, "Invalid Value");
-        nftContract.transferFrom(listing.seller, listing.tokenId, msg.sender);
+        nftContract.transferFrom(listing.seller, msg.sender, listing.tokenId);
         listings[listingId].sold = true;
         listings[listingId].active = false;
         listings[listingId].buyer = msg.sender;
@@ -132,8 +134,8 @@ contract NFTMarketplace {
 
     function deactivate(uint256 listingId) public {
         require(listings[listingId].active, "Listing not found");
-        IERC721 nftContract = IERC721(listing.contractAddress);
         Listing memory listing = listings[listingId];
+        IERC721 nftContract = IERC721(listing.contractAddress);
         require(
             listing.seller == msg.sender ||
                 nftContract.ownerOf(listing.tokenId) == msg.sender,
